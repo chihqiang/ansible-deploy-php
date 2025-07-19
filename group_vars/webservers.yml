@@ -1,0 +1,40 @@
+# 应用部署根目录，代码将拉取到此目录的 releases 子目录
+app_path: "/var/www/thinkphp"  
+
+# 应用代码仓库地址，支持 HTTPS 或 SSH
+app_repo: "https://gitee.com/top-think/think.git"  
+
+# git_version 可以指定分支、标签或提交哈希来控制部署版本。
+git_version: "8.x"  
+
+# 绑定的域名，用于 Nginx 配置等
+domain: www.thinkphp.com  
+
+# 应用运行用户和用户组，确保权限正确
+app_user: "www-data"  
+app_group: "www-data"  
+
+
+# PHP 版本，安装与配置相关的关键变量
+php_version: "8.1"  
+
+# PHP-FPM 池配置：最大子进程数，控制并发处理能力
+pm_max_children: 20  
+
+# PHP-FPM 池配置：启动时启动的进程数
+pm_start_servers: 5  
+
+# PHP-FPM 池配置：保持的最小空闲进程数
+pm_min_spare_servers: 3  
+
+# PHP-FPM 池配置：保持的最大空闲进程数
+pm_max_spare_servers: 10  
+
+# PHP 配置项：POST 请求最大数据大小（影响上传文件大小）
+php_post_max_size: "100M"  
+
+# PHP 配置项：上传文件最大大小
+php_upload_max_filesize: "100M"  
+
+# PHP 配置项：脚本最大执行时间（秒），防止超时
+php_max_execution_time: "60"  

@@ -1,0 +1,105 @@
+- name: 安装 PHP 和 Nginx 环境并配置 PHP-FPM
+  hosts: webservers
+  become: yes
+
+  tasks:
+    - name: 清理旧 ondrej 源和 key
+      shell: |
+        rm -rf /etc/apt/sources.list.d/*ondrej*.list
+      ignore_errors: yes
+
+    - name: 安装软件属性工具（异步执行防止卡住）
+      apt:
+        name: software-properties-common
+        state: present
+        update_cache: yes
+      async: 300
+      poll: 10
+
+    - name: 添加 ondrej/php PPA（带重试防止失败）
+      apt_repository:
+        repo: ppa:ondrej/php
+        state: present
+      register: ppa_add_result
+      until: ppa_add_result is succeeded
+      retries: 5
+      delay: 10
+
+    - name: 更新 apt 缓存
+      apt:
+        update_cache: yes
+
+    - name: 安装 PHP、扩展、Nginx、Git
+      apt:
+        name:
+          - nginx
+          - git
+          - "php{{ php_version }}"
+          - "php{{ php_version }}-dev"
+          - "php{{ php_version }}-common"
+          - "php{{ php_version }}-fpm"
+          - "php{{ php_version }}-mbstring"
+          - "php{{ php_version }}-zip"     
+          - "php{{ php_version }}-opcache"
+          - "php{{ php_version }}-mcrypt"
+          - "php{{ php_version }}-decimal"
+          - "php{{ php_version }}-gd"
+          - "php{{ php_version }}-imagick"
+          - "php{{ php_version }}-gmagick"
+          - "php{{ php_version }}-xml"
+          - "php{{ php_version }}-redis"
+          - "php{{ php_version }}-bcmath"
+          - "php{{ php_version }}-curl"
+          - "php{{ php_version }}-mysql"
+          - "php{{ php_version }}-swoole"
+        state: present
+      ignore_errors: yes
+
+    - name: 安装 Composer
+      shell: |
+        curl -sS https://getcomposer.org/installer | /usr/bin/php{{ php_version }}
+        mv composer.phar /usr/local/bin/composer{{ php_version }}
+      args:
+        creates: /usr/local/bin/composer{{ php_version }}
+
+    - name: 创建应用基础目录
+      file:
+        path: "{{ app_path }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: '0755'
+
+    - name: 部署 PHP-FPM 池配置文件 www.conf
+      template:
+        src: www.conf.j2
+        dest: "/etc/php/{{ php_version }}/fpm/pool.d/www.conf"
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: 批量修改 PHP CLI 和 FPM 配置多个参数
+      lineinfile:
+        path: "{{ item.0 }}"
+        regexp: "^{{ item.1 }}\\s*="
+        line: "{{ item.1 }} = {{ item.2 }}"
+        backup: yes
+      loop:
+        - ["/etc/php/{{ php_version }}/cli/php.ini", "post_max_size", "{{ php_post_max_size }}"]
+        - ["/etc/php/{{ php_version }}/fpm/php.ini", "post_max_size", "{{ php_post_max_size }}"]
+        - ["/etc/php/{{ php_version }}/cli/php.ini", "upload_max_filesize", "{{ php_upload_max_filesize }}"]
+        - ["/etc/php/{{ php_version }}/fpm/php.ini", "upload_max_filesize", "{{ php_upload_max_filesize }}"]
+        - ["/etc/php/{{ php_version }}/cli/php.ini", "max_execution_time", "{{ php_max_execution_time }}"]
+        - ["/etc/php/{{ php_version }}/fpm/php.ini", "max_execution_time", "{{ php_max_execution_time }}"]
+
+    - name: 重启 php-fpm 服务
+      service:
+        name: "php{{ php_version }}-fpm"
+        state: restarted
+        enabled: yes
+
+    - name: 重载 nginx 服务
+      service:
+        name: nginx
+        state: reloaded
+        enabled: yes

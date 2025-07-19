@@ -1,0 +1,216 @@
+; 开始一个新的池，名称为 'www'。
+; 变量 $pool 可用于任意指令，会被替换成池名称（这里是 'www'）
+[www]
+
+; 每个池的前缀
+; 只对以下指令有效：
+; - 'access.log'
+; - 'slowlog'
+; - 'listen' (unixsocket)
+; - 'chroot'
+; - 'chdir'
+; - 'php_values'
+; - 'php_admin_values'
+; 如果不设置，使用全局前缀（或 /usr）
+; 注意：此指令也可以相对全局前缀设置。
+; 默认值：无
+;prefix = /path/to/pools/$pool
+
+; 子进程的 Unix 用户和用户组。仅当主进程用户为 root 时可用。
+; 在子进程创建后设置用户和组，可以使用用户名或数字 ID。
+; 注意：如果用户为 root，需要带上 --allow-to-run-as-root 参数启动。
+; 默认值：默认子进程使用主进程运行用户，若未设置组，则使用用户组。
+user = {{ app_user }}
+group ={{ app_group }}
+
+; 监听 FastCGI 请求的地址。
+; 可用格式：
+;   'ip.add.re.ss:port'    - 监听指定 IPv4 地址和端口；
+;   '[ip:6:addr:ess]:port' - 监听指定 IPv6 地址和端口；
+;   'port'                 - 监听所有地址（IPv6 和 IPv4 映射）上的指定端口；
+;   '/path/to/unix/socket' - 监听 Unix 套接字。
+; 注意：此项为必填。
+listen = /run/php/php{{ php_version }}-fpm.sock
+
+
+; 设置 listen(2) 队列长度。
+; 默认值：511 （FreeBSD 和 OpenBSD 为 -1）
+;listen.backlog = 511
+
+; 设置 Unix 套接字权限，Linux 需设置读写权限以允许 Web 服务器连接。
+; 所有者和组可用名字或数字 ID 指定。
+; 默认值：所有者为主进程运行用户，未设置组时用所有者组，权限模式 0660。
+listen.owner ={{ app_user }}
+listen.group ={{ app_group }}
+;listen.mode = 0660
+
+; 如果支持 POSIX ACL，可以用此设置访问用户/组（逗号分隔）。
+; 设置后忽略 listen.owner 和 listen.group。
+;listen.acl_users =
+;listen.acl_groups =
+
+; 允许连接的 FastCGI 客户端地址列表，逗号分隔。
+; 仅 TCP 监听有效，留空表示允许任意 IP 连接。
+; 默认值：任意
+;listen.allowed_clients = 127.0.0.1
+
+; 设置池进程优先级 nice(2)，-19 最高，20 最低。
+; 仅主进程以 root 启动时生效，子进程继承主进程优先级。
+; 默认值：未设置
+;process.priority = -19
+
+; 允许进程 dumpable 标志（PR_SET_DUMPABLE prctl），即使进程用户组不同于主进程。
+; 允许为池用户创建 core dump 和 ptrace 进程。
+; 默认值：否
+;process.dumpable = yes
+
+; 进程管理方式：
+; static  - 固定数量进程 (pm.max_children = 80)
+; dynamic - 动态管理，依据以下参数调整：
+;           pm.max_children = 最大子进程数
+;           pm.start_servers = 启动时创建的子进程数
+;           pm.min_spare_servers = 最小空闲进程数
+;           pm.max_spare_servers = 最大空闲进程数
+;           pm.max_spawn_rate = 一次性最多创建的进程数
+; ondemand - 启动时无子进程，按需创建。
+;             pm.max_children = 最大子进程数
+;             pm.process_idle_timeout = 空闲进程存活时间
+; 注意：必填项
+pm = dynamic
+
+; 最大子进程数，等同 Apache MaxClients，控制最大并发请求数。
+; 适用于 static, dynamic, ondemand。
+; 必填项
+pm.max_children = {{ pm_max_children | default(80) }}
+
+; 启动时创建的子进程数，仅 dynamic 模式有效。
+; 默认值：(min_spare_servers + max_spare_servers) / 2
+pm.start_servers =  {{ pm_start_servers | default(5) }}
+
+; 期望的最小空闲进程数，仅 dynamic 模式有效。
+; 必填项
+pm.min_spare_servers = {{ pm_min_spare_servers | default(5) }}
+
+; 期望的最大空闲进程数，仅 dynamic 模式有效。
+; 必填项
+pm.max_spare_servers = {{ pm_max_spare_servers | default(20) }}
+
+; 一次性最多创建子进程数，仅 dynamic 模式有效。
+; 必填项
+; 默认值：32
+;pm.max_spawn_rate = 32
+
+; 空闲进程存活时间，仅 ondemand 模式有效。
+; 默认值：10秒
+;pm.process_idle_timeout = 10s;
+
+; 每个子进程处理请求数后重启，防止内存泄漏。
+; 设置为 0 表示无限。
+; 默认值：0
+;pm.max_requests = 500
+
+; 查看 FPM 状态页面的 URI。未设置时不启用。
+; 状态页显示池名、管理器类型、启动时间、接受连接数、空闲进程数等实时信息。
+; 示例：http://example.com/status?json&full
+;pm.status_path = /status
+
+; 用于独立监听 FastCGI 状态请求的地址。
+; 可指定 TCP 或 Unix socket，默认值为 listen 选项的值。
+;pm.status_listen = 127.0.0.1:9001
+
+; 用于监控 FPM 活跃的 ping URI。
+; 未设置则不启用。
+;pm.ping.path = /ping
+
+; 自定义 ping 响应内容，默认 'pong'。
+;pm.ping.response = pong
+
+; 访问日志文件路径，默认不启用。
+;access.log = log/$pool.access.log
+
+; 访问日志格式说明，支持多种格式化变量。
+; 默认："%R - %u %t \"%m %r%Q%q\" %s %f %{milli}d %{kilo}M %C%%"
+;access.format = "%R - %u %t \"%m %r%Q%q\" %s %f %{milli}d %{kilo}M %C%%"
+
+; 慢请求日志文件路径。
+; 必须设置 request_slowlog_timeout 才有效。
+;slowlog = log/$pool.log.slow
+
+; 慢请求超时时间，超过此时间将记录回溯日志，单位支持 s, m, h, d。
+; 0 表示关闭。
+; 默认值：0
+;request_slowlog_timeout = 0
+
+; 慢请求回溯深度。
+; 默认值：20
+;request_slowlog_trace_depth = 20
+
+; 超时杀死请求进程时间，防止 max_execution_time 失效。
+; 0 表示关闭。
+; 默认值：0
+;request_terminate_timeout = 0
+
+; 即使 fastcgi_finish_request 调用后，依然启用超时限制。
+; 默认值：否
+;request_terminate_timeout_track_finished = no
+
+; 设置打开文件描述符限制。
+; 默认值：系统默认
+;rlimit_files = 1024
+
+; 设置 core dump 文件大小限制。
+; 可用值：'unlimited' 或整数 >= 0
+; 默认值：系统默认
+;rlimit_core = 0
+
+; 启动时 chroot 到指定目录，必须为绝对路径。
+; 未设置则不启用。
+;chroot =
+
+; 启动时切换目录，支持相对路径。
+; 默认值：当前目录或 /（chroot 时）
+;chdir = /var/www
+
+; 将子进程 stdout 和 stderr 重定向到主错误日志。
+; 未设置时按 FastCGI 规范重定向到 /dev/null。
+; 高负载环境可能导致响应时间增加。
+; 默认值：否
+;catch_workers_output = yes
+
+; 装饰子进程输出，添加子进程信息、日志等级、时间等。
+; 仅在 catch_workers_output = yes 时生效。
+; 设置为 no 则直接输出原始内容。
+; 默认值：是
+;decorate_workers_output = no
+
+; 清空子进程环境变量，避免任意变量泄漏。
+; 设为 no 时，所有环境变量可通过 getenv()、$_ENV、$_SERVER 获取。
+; 默认值：是
+;clear_env = no
+
+; 限制允许 PHP 解析的脚本扩展，防止错误配置。
+; 设置为空则允许所有扩展。
+; 默认值：.php
+;security.limit_extensions = .php .php3 .php4 .php5 .php7
+
+; 传递环境变量，变量取当前环境值。
+; 默认清理环境，仅传递此处设置的变量。
+;env[HOSTNAME] = $HOSTNAME
+;env[PATH] = /usr/local/bin:/usr/bin:/bin
+;env[TMP] = /tmp
+;env[TMPDIR] = /tmp
+;env[TEMP] = /tmp
+
+; 针对本池的 php.ini 设置，覆盖全局设置。
+; 格式同 PHP SAPI：
+;  - php_value/php_flag 可被 PHP ini_set() 覆盖
+;  - php_admin_value/php_admin_flag 不可被 PHP 覆盖
+; 可设置扩展加载，禁用函数或类等。
+; 路径类设置可使用相对路径，相对池、全局前缀或 /usr。
+
+; 默认无设置，使用 php.ini 和启动参数设置。
+;php_admin_value[sendmail_path] = /usr/sbin/sendmail -t -i -f www@my.domain.com
+;php_flag[display_errors] = off
+;php_admin_value[error_log] = /var/log/fpm-php.www.log
+;php_admin_flag[log_errors] = on
+;php_admin_value[memory_limit] = 32M  ; 设置 PHP 脚本最大内存限制为 32M，防止脚本占用过多内存导致服务器不稳定

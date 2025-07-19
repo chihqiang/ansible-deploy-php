@@ -1,0 +1,42 @@
+- name: 部署 PHP 应用
+  hosts: webservers
+  become: yes
+
+  tasks:
+    - name: 拉取最新代码到应用目录
+      git:
+        repo: "{{ app_repo }}"
+        dest: "{{ app_path }}/{{ domain }}/current"
+        version: "{{ git_version }}"
+        force: yes
+
+    - name: 运行 composer install
+      shell: |
+        cd {{ app_path }}/{{ domain }}/current
+        /usr/local/bin/composer{{ php_version }} install
+      environment:
+        COMPOSER_HOME: /tmp/{{ php_version }}/composer
+
+    - name: 设置目录权限
+      file:
+        path: "{{ app_path }}/{{ domain }}/current"
+        recurse: yes
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+
+    - name: 初始化 Nginx 配置
+      template:
+        src: nginx-php.conf.j2
+        dest: "/etc/nginx/conf.d/{{ domain }}.conf"
+      notify: reload nginx
+
+    - name: 重启 php-fpm 服务
+      service:
+        name: "php{{ php_version }}-fpm"
+        state: restarted
+
+  handlers:
+    - name: reload nginx
+      service:
+        name: nginx
+        state: reloaded

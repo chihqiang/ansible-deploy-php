@@ -1,0 +1,60 @@
+- name: 部署 PHP 应用
+  hosts: webservers
+  become: yes
+
+  vars:
+    keep_releases: 5
+
+  tasks:
+    - name: 生成版本号（时间戳）
+      set_fact:
+        deployment_id: "{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}"
+
+    - name: 拉取代码到 releases 目录
+      git:
+        repo: "{{ app_repo }}"
+        dest: "{{ app_path }}/{{ domain }}/releases/{{ deployment_id }}"
+        version: "{{ git_version }}"
+        force: yes
+
+    - name: 运行 composer install
+      shell: |
+        cd {{ app_path }}/{{ domain }}/releases/{{ deployment_id }}
+        /usr/local/bin/composer{{ php_version }} install --no-dev --optimize-autoloader
+      environment:
+        COMPOSER_HOME: /tmp/{{ php_version }}/composer
+
+    - name: 设置版本目录权限
+      file:
+        path: "{{ app_path }}/{{ domain }}/releases/{{ deployment_id }}"
+        recurse: yes
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+
+    - name: 更新 current 软链接指向新版本
+      file:
+        src: "{{ app_path }}/{{ domain }}/releases/{{ deployment_id }}"
+        dest: "{{ app_path }}/{{ domain }}/current"
+        state: link
+        force: yes
+
+    - name: 初始化 Nginx 配置
+      template:
+        src: nginx-php.conf.j2
+        dest: "/etc/nginx/conf.d/{{ domain }}.conf"
+      notify: reload nginx
+
+    - name: 重载 php-fpm 服务
+      service:
+        name: "php{{ php_version }}-fpm"
+        state: reloaded
+
+    - name: 清理旧版本，只保留最近 {{ keep_releases }} 个
+      shell: |
+        cd {{ app_path }}/{{ domain }}/releases && ls -1tr | head -n -{{ keep_releases }} | xargs -r rm -rf
+
+  handlers:
+    - name: reload nginx
+      service:
+        name: nginx
+        state: reloaded

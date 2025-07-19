@@ -1,0 +1,35 @@
+- name: 回滚应用到上一版本
+  hosts: webservers
+  become: yes
+
+  tasks:
+    - name: 查找版本目录
+      find:
+        paths: "{{ app_path }}/{{ domain }}/releases"
+        file_type: directory
+      register: release_dirs
+
+    - name: 确认是否存在可回滚版本
+      fail:
+        msg: "未找到可回滚的历史版本（当前版本以下没有其他版本）"
+      when: release_dirs.files | length < 2
+
+    - name: 获取上一个版本路径
+      set_fact:
+        previous_release: "{{ (release_dirs.files | sort(attribute='mtime', reverse=true))[1].path }}"
+
+    - name: 输出即将回滚版本
+      debug:
+        msg: "即将回滚至: {{ previous_release }}"
+
+    - name: 回滚软链接指向上一个版本
+      file:
+        src: "{{ previous_release }}"
+        dest: "{{ app_path }}/{{ domain }}/current"
+        state: link
+        force: yes
+
+    - name: 重载 php-fpm 服务
+      service:
+        name: "php{{ php_version }}-fpm"
+        state: reloaded

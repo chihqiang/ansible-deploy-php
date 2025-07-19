@@ -1,0 +1,30 @@
+server {
+    listen 80;
+    server_name {{ domain }};
+
+    root {{ app_path }}/{{ domain }}/current/public;
+    index index.php index.html index.htm;
+
+    access_log /var/log/nginx/{{ domain }}.access.log;
+    error_log /var/log/nginx/{{ domain }}.error.log;
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        include fastcgi_params;
+        fastcgi_pass unix:/run/php/php{{ php_version }}-fpm.sock;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_hide_header X-Powered-By;
+    }
+
+    location ~ /\.ht {
+        deny all;
+    }
+
+    location /.well-known/ {
+        alias /var/www/html/.well-known/;
+    }
+}

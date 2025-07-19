@@ -1,0 +1,12 @@
+all:
+  children:
+    webservers:
+      hosts:
+        web-01:
+          ansible_host: 127.0.0.1
+          ansible_port: 8022
+          ansible_user: root
+          ansible_password: 123456
+          ansible_become: yes
+          ansible_become_method: sudo
+          ansible_become_pass: 123456
