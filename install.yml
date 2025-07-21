@@ -2,6 +2,20 @@
   hosts: webservers
   become: yes
 
+  vars:
+    # PHP-FPM 池配置：最大子进程数，控制并发处理能力
+    pm_max_children: 20
+    # PHP-FPM 池配置：启动时启动的进程数
+    pm_start_servers: 5
+    # PHP-FPM 池配置：保持的最小空闲进程数
+    pm_min_spare_servers: 3
+    # PHP-FPM 池配置：保持的最大空闲进程数
+    pm_max_spare_servers: 10
+    # PHP 配置项：POST 请求最大数据大小（影响上传文件大小）
+    php_upload_max_filesize: "100M"
+    # PHP 配置项：脚本最大执行时间（秒），防止超时
+    php_max_execution_time: 60
+  
   tasks:
     - name: 清理旧 ondrej 源和 key
       shell: |
