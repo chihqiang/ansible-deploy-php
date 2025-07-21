@@ -23,11 +23,17 @@
         recurse: yes
         owner: "{{ app_user }}"
         group: "{{ app_group }}"
+        
+    - name: 检查 Nginx 配置文件是否存在
+      stat:
+        path: "/etc/nginx/conf.d/{{ domain }}.conf"
+      register: nginx_conf_stat
 
-    - name: 初始化 Nginx 配置
+    - name: 初始化 Nginx 配置（文件不存在时才写）
       template:
         src: nginx-php.conf.j2
         dest: "/etc/nginx/conf.d/{{ domain }}.conf"
+      when: not nginx_conf_stat.stat.exists
       notify: reload nginx
 
     - name: 重启 php-fpm 服务

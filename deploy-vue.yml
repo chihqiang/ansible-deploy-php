@@ -1,0 +1,49 @@
+- name: 部署 Vue 应用
+  hosts: webservers
+  become: yes
+
+  vars:
+    vue_repo: https://gitee.com/mirrors/vue-admin-template.git
+    vue_path: "/var/www/vue"
+    vue_git_version: "master"
+    vue_domain: "www.vue.com"
+    node_bin_path: "/home/ubuntu/.nvm/versions/node/v20.19.4/bin"
+
+  environment:
+    PATH: "{{ node_bin_path }}:{{ ansible_env.PATH }}"
+
+  tasks:
+    - name: 拉取最新代码到应用目录
+      git:
+        repo: "{{ vue_repo }}"
+        dest: "{{ vue_path }}/{{ vue_domain }}/current"
+        version: "{{ vue_git_version }}"
+        force: yes
+
+    - name: 安装 Node.js 依赖（npm install）
+      shell: npm install
+      args:
+        chdir: "{{ vue_path }}/{{ vue_domain }}/current"
+
+    - name: 构建 Vue 项目（npm run build）
+      shell: npm run build
+      args:
+        chdir: "{{ vue_path }}/{{ vue_domain }}/current"
+
+    - name: 检查 Nginx 配置文件是否存在
+      stat:
+        path: "/etc/nginx/conf.d/{{ vue_domain }}.conf"
+      register: nginx_conf_stat
+
+    - name: 初始化 Nginx 配置（文件不存在时才写）
+      template:
+        src: nginx-vue.conf.j2
+        dest: "/etc/nginx/conf.d/{{ vue_domain }}.conf"
+      when: not nginx_conf_stat.stat.exists
+      notify: reload nginx
+
+  handlers:
+    - name: reload nginx
+      service:
+        name: nginx
+        state: reloaded

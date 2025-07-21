@@ -15,3 +15,6 @@ rollback:
 # 部署阶段：执行部署 Git 版本的 playbook，将代码从 Git 仓库部署到服务器
 deploy-git:
 	ansible-playbook -i hosts/webservers.yml deploy-git.yml
+# 部署 Vue 应用的 playbook，主要用于前端应用的部署
+deploy-vue:
+	ansible-playbook -i hosts/webservers.yml deploy-vue.yml
